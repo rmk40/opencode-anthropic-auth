@@ -1,5 +1,6 @@
 import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
+import { randomUUID } from "node:crypto";
 import { AccountManager } from "./lib/accounts.mjs";
 import { main as cliMain } from "./cli.mjs";
 import { authorize, exchange, refreshToken } from "./lib/oauth.mjs";
@@ -11,6 +12,10 @@ import { resolveSlashCommandName, isDestructiveCommand, isInteractiveOnlyCommand
 import { isAccountSpecificError, parseRateLimitReason, parseRetryAfterHeader } from "./lib/backoff.mjs";
 import { getHeaderProfile, getDefaultBetas, getBillingHeaderBlock } from "./lib/request-headers.mjs";
 import { stripAnsi } from "./lib/util.mjs";
+
+// Stable per-process session ID, matches Claude Code behavior (one UUID per CLI invocation).
+// Sent as x-claude-code-session-id header on every API request.
+const CLAUDE_CODE_SESSION_ID = randomUUID();
 
 // ---------------------------------------------------------------------------
 // Account management CLI prompts
@@ -184,6 +189,10 @@ function buildRequestHeaders(input, requestInit, accessToken, headerConfig, mode
   requestHeaders.set("authorization", `Bearer ${accessToken}`);
   if (!disabledHeaders.has("anthropic-beta")) {
     requestHeaders.set("anthropic-beta", mergedBetas);
+  }
+  // x-claude-code-session-id is a per-process UUID — matches Claude Code 2.1.96+ behavior.
+  if (!disabledHeaders.has("x-claude-code-session-id") && !requestHeaders.has("x-claude-code-session-id")) {
+    requestHeaders.set("x-claude-code-session-id", CLAUDE_CODE_SESSION_ID);
   }
   requestHeaders.delete("x-api-key");
 

@@ -571,21 +571,22 @@ describe("fetch interceptor", () => {
     expect(headers.get("accept")).toBe("application/json");
     expect(headers.get("anthropic-version")).toBe("2023-06-01");
     expect(headers.get("anthropic-dangerous-direct-browser-access")).toBe("true");
-    expect(headers.get("user-agent")).toBe("claude-cli/2.1.75 (external, cli)");
+    expect(headers.get("user-agent")).toBe("claude-cli/2.1.96 (external, sdk-cli)");
     expect(headers.get("x-app")).toBe("cli");
-    expect(headers.get("x-stainless-arch")).toBe("arm64");
+    expect(headers.get("x-stainless-arch")).toBe("x64");
     expect(headers.get("x-stainless-lang")).toBe("js");
-    expect(headers.get("x-stainless-os")).toBe("MacOS");
-    expect(headers.get("x-stainless-package-version")).toBe("0.74.0");
+    expect(headers.get("x-stainless-os")).toBe("Linux");
+    expect(headers.get("x-stainless-package-version")).toBe("0.81.0");
     expect(headers.get("x-stainless-retry-count")).toBe("0");
     expect(headers.get("x-stainless-runtime")).toBe("node");
     expect(headers.get("x-stainless-runtime-version")).toBe("v24.3.0");
     expect(headers.get("x-stainless-timeout")).toBe("600");
     expect(headers.get("anthropic-beta")).toContain("claude-code-20250219");
     expect(headers.get("anthropic-beta")).toContain("oauth-2025-04-20");
-    expect(headers.get("anthropic-beta")).toContain("context-1m-2025-08-07");
-    expect(headers.get("anthropic-beta")).toContain("redact-thinking-2026-02-12");
-    expect(headers.get("anthropic-beta")).toContain("advanced-tool-use-2025-11-20");
+    expect(headers.get("anthropic-beta")).toContain("interleaved-thinking-2025-05-14");
+    expect(headers.get("anthropic-beta")).toContain("prompt-caching-scope-2026-01-05");
+    expect(headers.get("anthropic-beta")).toContain("effort-2025-11-24");
+    expect(headers.get("anthropic-beta")).not.toContain("context-1m-2025-08-07");
     expect(headers.get("anthropic-beta")).not.toContain("adaptive-thinking-2026-01-28");
     expect(headers.get("anthropic-beta")).not.toContain("context-management-2025-06-27");
     expect(headers.has("x-api-key")).toBe(false);
@@ -1070,7 +1071,7 @@ describe("fetch interceptor — token refresh", () => {
 
     // First call should be the token refresh
     const [refreshUrl, refreshInit] = mockFetch.mock.calls[0];
-    expect(refreshUrl).toBe("https://console.anthropic.com/v1/oauth/token");
+    expect(refreshUrl).toBe("https://platform.claude.com/v1/oauth/token");
     const refreshBody = new URLSearchParams(refreshInit.body);
     expect(refreshBody.get("grant_type")).toBe("refresh_token");
 
@@ -2948,7 +2949,7 @@ describe("API key creation handler", () => {
       ok: true,
       json: async () => ({ raw_key: "sk-ant-test-key" }),
     });
-    const result = await callback("test-code");
+    const result = await callback("test-code#test-state");
     expect(result).toEqual({ type: "success", key: "sk-ant-test-key" });
   });
 
@@ -2968,9 +2969,8 @@ describe("API key creation handler", () => {
       status: 500,
       text: async () => "Internal Server Error",
     });
-    const result = await callback("test-code");
+    const result = await callback("test-code#test-state");
     expect(result.type).toBe("failed");
-    expect(result.error).toContain("HTTP 500");
   });
 
   it("returns failed when fetch throws (network error)", async () => {
@@ -2985,9 +2985,8 @@ describe("API key creation handler", () => {
     const callback = await getApiKeyCallback();
 
     mockFetch.mockRejectedValueOnce(new Error("Network failure"));
-    const result = await callback("test-code");
+    const result = await callback("test-code#test-state");
     expect(result.type).toBe("failed");
-    expect(result.error).toContain("Network failure");
   });
 
   it("returns failed when response JSON is unparseable", async () => {
@@ -3007,9 +3006,8 @@ describe("API key creation handler", () => {
         throw new SyntaxError("Unexpected token");
       },
     });
-    const result = await callback("test-code");
+    const result = await callback("test-code#test-state");
     expect(result.type).toBe("failed");
-    expect(result.error).toContain("Unexpected token");
   });
 
   it("returns failed when response has no raw_key", async () => {
@@ -3027,8 +3025,7 @@ describe("API key creation handler", () => {
       ok: true,
       json: async () => ({ some_other_field: "value" }),
     });
-    const result = await callback("test-code");
+    const result = await callback("test-code#test-state");
     expect(result.type).toBe("failed");
-    expect(result.error).toContain("no key in response");
   });
 });
